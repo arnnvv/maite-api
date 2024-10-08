@@ -48,11 +48,13 @@ const verifyToken = async (c: any, next: any) => {
 	if (!token) return c.json({ error: "No token provided" }, 401);
 
 	try {
-		const email: string | undefined = await getEmail(token);
-		if (email) {
-			c.set("email", email);
-			await next();
-		}
+		const emailOrError = await getEmail(token);
+
+		if ("error" in emailOrError)
+			return c.json({ error: emailOrError.error }, 401);
+
+		c.set("email", emailOrError.email);
+		await next();
 	} catch (error) {
 		return c.json({ error: "Invalid token" }, 401);
 	}
