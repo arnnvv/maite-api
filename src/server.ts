@@ -5,6 +5,9 @@ import { db } from "../lib/db";
 import { users } from "../lib/db/schema";
 import { v4 } from "uuid";
 import { eq } from "drizzle-orm";
+import { inferAsyncReturnType } from "@trpc/server";
+import { trpcServer } from "@hono/trpc-server";
+import { appRouter } from "./router";
 
 const app = new Hono();
 
@@ -20,6 +23,16 @@ const logWithColor = (message: string, color: string) => {
 };
 
 app.use("*", cors());
+app.use(
+	"/trpc/*",
+	trpcServer({
+		router: appRouter,
+	}),
+);
+
+const createContext = () => null;
+
+type Context = inferAsyncReturnType<typeof createContext>;
 
 app.post("/", async (c) => {
 	const body = await c.req.json();
