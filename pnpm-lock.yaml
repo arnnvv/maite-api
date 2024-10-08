@@ -8,15 +8,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.1
         version: 1.13.1(hono@4.6.3)
-      '@hono/trpc-server':
-        specifier: ^0.3.2
-        version: 0.3.2(@trpc/server@10.45.2)(hono@4.6.3)
       '@neondatabase/serverless':
         specifier: ^0.10.1
         version: 0.10.1
-      '@trpc/server':
-        specifier: ^10.45.2
-        version: 10.45.2
       drizzle-orm:
         specifier: ^0.34.1
         version: 0.34.1(@neondatabase/serverless@0.10.1)(@types/pg@8.11.6)
@@ -340,16 +334,8 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
-  '@hono/trpc-server@0.3.2':
-    resolution: {integrity: sha512-dTKDrSldjBn0hi9FjHOGdiHgMCWPoW5NaBUTQRNLyVL9JcJJu9oiwTFoIscPFxc9CF2rAeA8aRGHoFJK+A8cLw==}
-    engines: {node: '>=16.0.0'}
-    peerDependencies:
-      '@trpc/server': ^10.10.0 || >11.0.0-rc
-      hono: '>=4.*'
   '@neondatabase/serverless@0.10.1':
     resolution: {integrity: sha512-Upn555uEYL/q8aqMdPSviggNWeeZLCl5FhCIs7A4hmshfoOAAfML+Sqbcxr+Re2WZN5+hpyM9JClImXnBuhuXw==}
-  '@trpc/server@10.45.2':
-    resolution: {integrity: sha512-wOrSThNNE4HUnuhJG6PfDRp4L2009KDVxsd+2VYH8ro6o/7/jwYZ8Uu5j+VaW+mOmc8EHerHzGcdbGNQSAUPgg==}
   '@types/jsonwebtoken@9.0.7':
     resolution: {integrity: sha512-ugo316mmTYBl2g81zDFnZ7cfxlut3o+/EQdaP7J8QN2kY6lJ22hmQYCK5EHcJHbrW+dkCGSCPgbG8JtYj6qSrg==}
   '@types/node@22.7.5':
@@ -688,14 +674,9 @@ snapshots:
   '@hono/node-server@1.13.1(hono@4.6.3)':
     dependencies:
       hono: 4.6.3
-  '@hono/trpc-server@0.3.2(@trpc/server@10.45.2)(hono@4.6.3)':
-    dependencies:
-      '@trpc/server': 10.45.2
-      hono: 4.6.3
   '@neondatabase/serverless@0.10.1':
     dependencies:
       '@types/pg': 8.11.6
-  '@trpc/server@10.45.2': {}
   '@types/jsonwebtoken@9.0.7':
     dependencies:
       '@types/node': 22.7.5

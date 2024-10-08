@@ -5,10 +5,16 @@ import { db } from "../lib/db";
 import { users } from "../lib/db/schema";
 import { v4 } from "uuid";
 import { eq } from "drizzle-orm";
-import { inferAsyncReturnType } from "@trpc/server";
-import { trpcServer } from "@hono/trpc-server";
-import { appRouter } from "./router";
 import { createTransport, SentMessageInfo } from "nodemailer";
+import jwt from "jsonwebtoken";
+import { getEmail } from "../lib/helpers";
+
+export const getJWTSECRET = (): string =>
+	process.env.JWT_SECRET ??
+	((): never => {
+		logWithColor("JWT_SECRET is missing!", "\x1b[31m"); // Red
+		throw new Error("PLZ Define JWT Secret");
+	})();
 
 const getGmail = (): string =>
 	process.env.GMAIL ??
@@ -31,23 +37,28 @@ let dummyusers: { [key: string]: string } = {};
 setInterval(() => {
 	console.info("Clearing OTP memory");
 	dummyusers = {};
-}, 25920000);
+}, 3600000);
 
 const logWithColor = (message: string, color: string) => {
 	console.log(`${color}%s\x1b[0m`, message);
 };
 
+const verifyToken = async (c: any, next: any) => {
+	const token = c.req.header("Authorization")?.split(" ")[1];
+	if (!token) return c.json({ error: "No token provided" }, 401);
+
+	try {
+		const email: string | undefined = await getEmail(token);
+		if (email) {
+			c.set("email", email);
+			await next();
+		}
+	} catch (error) {
+		return c.json({ error: "Invalid token" }, 401);
+	}
+};
+
 app.use("*", cors());
-app.use(
-	"/trpc/*",
-	trpcServer({
-		router: appRouter,
-	}),
-);
-
-const createContext = () => null;
-
-type Context = inferAsyncReturnType<typeof createContext>;
 
 app.post("/", async (c) => {
 	const body = await c.req.json();
@@ -155,6 +166,27 @@ app.post("/send-otp", async (c) => {
 		},
 	);
 });
+
+app.post("/verify-otp", async (c) => {
+	logWithColor("POST /verify-otp - Request received", "\x1b[36m"); // Cyan
+	const { email, otp } = await c.req.json();
+	logWithColor(`Verifying OTP for ${email}`, "\x1b[33m"); // Yellow
+
+	if (dummyusers[email] === otp) {
+		logWithColor(`OTP verified for ${email}`, "\x1b[32m"); // Green
+		const token = jwt.sign({ email }, getJWTSECRET(), { expiresIn: "30d" });
+		logWithColor(`Token generated for ${email}: ${token}`, "\x1b[36m"); // Cyan
+		return c.json({ token }, 200);
+	} else {
+		logWithColor(
+			`Invalid OTP for ${email}. Provided OTP: ${otp}, Expected OTP: ${dummyusers[email]}`,
+			"\x1b[31m", // Red
+		);
+		return c.json({ error: "Invalid OTP" }, 401);
+	}
+});
+
+app.use("/api/*", verifyToken);
 
 const port: number = 3000;
 
