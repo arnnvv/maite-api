@@ -2,7 +2,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { db } from "../lib/db";
-import { users } from "../lib/db/schema";
+import { pictures, users } from "../lib/db/schema";
 import { v4 } from "uuid";
 import { eq } from "drizzle-orm";
 import { createTransport, SentMessageInfo } from "nodemailer";
@@ -189,6 +189,34 @@ app.post("/verify-otp", async (c) => {
 });
 
 app.use("/api/*", verifyToken);
+
+app.post("/api/get-user", async (c) => {
+	logWithColor("POST /get-user-from-token - Request received", "\x1b[36m"); // Cyan
+
+	const email = c.get("email") as string;
+	logWithColor(`Verified email from token: ${email}`, "\x1b[32m"); // Green
+	try {
+		const userr = await db.select().from(users).where(eq(users.email, email));
+		const user = userr[0];
+		logWithColor(`User retrieved: ${JSON.stringify(user)}`, "\x1b[32m"); // Green
+
+		logWithColor("Fetching user images", "\x1b[33m"); // Yellow
+		const imagess = await db
+			.select()
+			.from(pictures)
+			.where(eq(pictures.email, email));
+
+		const images = imagess.map(
+			(i: { id: number; email: string; url: string }): string => i.url,
+		);
+		logWithColor(`Images retrieved: ${JSON.stringify(images)}`, "\x1b[32m"); // Green
+
+		return c.json({ user, images });
+	} catch (error) {
+		logWithColor(`Error retrieving user data: ${error}`, "\x1b[31m"); // Red
+		return c.json({ error: "Error retrieving user data" }, 500);
+	}
+});
 
 const port: number = 3000;
 
