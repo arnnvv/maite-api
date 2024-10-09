@@ -7,7 +7,10 @@ import { v4 } from "uuid";
 import { eq } from "drizzle-orm";
 import { createTransport, SentMessageInfo } from "nodemailer";
 import jwt from "jsonwebtoken";
-import { getEmail } from "../lib/helpers";
+import { getEmail, getReccomendations } from "../lib/helpers";
+import { s3 } from "../lib/imageStore";
+import { s3Uploader } from "../lib/s3Uploader";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const getJWTSECRET = (): string =>
 	process.env.JWT_SECRET ??
@@ -193,6 +196,7 @@ app.use("/api/*", verifyToken);
 app.post("/api/get-user", async (c) => {
 	logWithColor("POST /get-user-from-token - Request received", "\x1b[36m"); // Cyan
 
+	//@ts-expect-error: W T F
 	const email = c.get("email") as string;
 	logWithColor(`Verified email from token: ${email}`, "\x1b[32m"); // Green
 	try {
@@ -215,6 +219,202 @@ app.post("/api/get-user", async (c) => {
 	} catch (error) {
 		logWithColor(`Error retrieving user data: ${error}`, "\x1b[31m"); // Red
 		return c.json({ error: "Error retrieving user data" }, 500);
+	}
+});
+
+app.post("/create-user", async (c) => {
+	logWithColor("POST /create-user - Request received", "\x1b[36m"); // Cyan
+	const { user } = await c.req.json();
+	logWithColor(`Received user data: ${JSON.stringify(user)}`, "\x1b[33m"); // Yellow
+
+	if (!user || !user.name) {
+		logWithColor("User name or data is missing", "\x1b[31m"); // Red
+		return c.json({ error: "Name and email are required" }, 400);
+	}
+
+	try {
+		logWithColor(
+			`Checking if user with email ${user.email} exists`,
+			"\x1b[33m",
+		); // Yellow
+		const existingUser = await db
+			.select()
+			.from(users)
+			.where(eq(users.email, user.email));
+
+		if (existingUser.length <= 0) {
+			logWithColor(`User with email ${user.email} does not exist`, "\x1b[31m"); // Red
+			return c.json({ error: "User with this email doesn't exist" }, 404);
+		}
+
+		logWithColor(`Updating user details for ${user.email}`, "\x1b[33m"); // Yellow
+		console.log(user.religion);
+		await db
+			.update(users)
+			.set({
+				name: user.name,
+				location: user.location,
+				gender: user.gender,
+				relationshiptype: user.relationshiptype,
+				height: user.height,
+				religion: user.religion,
+				occupationArea: user.occupationArea,
+				occupationField: user.occupationField,
+				drink: user.drink,
+				smoke: user.smoke,
+				bio: user.bio,
+				date: user.date,
+				month: user.month,
+				year: user.year,
+				instaId: user.instaId,
+				phone: user.phone,
+			})
+			.where(eq(users.email, user.email));
+
+		logWithColor(`User details updated for ${user.email}`, "\x1b[32m"); // Green
+		return c.json({ created: true }, 201);
+	} catch (error) {
+		logWithColor(`Error creating/updating user: ${error}`, "\x1b[31m"); // Red
+		return c.json({ error: "Internal server error" }, 500);
+	}
+});
+
+app.post("/profile-images", async (c) => {
+	const { email, url } = await c.req.json();
+	console.log(`email ki behen ki chut ${email}`);
+	console.log(
+		"Received POST request for /profile-images with the following data:",
+	);
+	console.log(JSON.stringify(c.req.json(), null, 2));
+
+	// Field validation logging
+	if (!email || !url) {
+		console.log("Missing fields in request body:");
+		if (!email) console.log("Missing email");
+		if (!url) console.log("Missing URL");
+
+		return c.json({ error: "All fields are required" }, 400);
+	}
+
+	try {
+		console.log("Inserting new image into the database...");
+
+		// Insert new image record
+		const newImage = await db.insert(pictures).values({
+			email,
+			url,
+		});
+
+		console.log("Image inserted successfully into the database");
+		console.log("Inserted image details:");
+		console.log(JSON.stringify(newImage, null, 2));
+		console.log("Sent 201 response to client: Image uploaded successfully");
+		// Send success response
+		return c.json({ message: "Image uploaded successfully", newImage }, 201);
+	} catch (error) {
+		return c.json({ error: "Failed to upload image" }, 500);
+	}
+});
+
+// POST route for uploading image to S3
+app.post("/upload-image", async (c) => {
+	const { filename } = await c.req.json();
+
+	logWithColor(
+		`🚀 Starting the upload process for image: "${filename}"`,
+		"\x1b[34m",
+	); // Blue
+
+	try {
+		logWithColor(
+			`📦 Preparing to upload the image to S3 with filename: "${filename}"`,
+			"\x1b[34m",
+		); // Blue
+
+		const command = s3Uploader.uploadFile(filename);
+
+		logWithColor(
+			`🔗 Generating a signed URL for the image upload...`,
+			"\x1b[34m",
+		); // Blue
+
+		try {
+			const uploadUrl = await getSignedUrl(s3, command);
+			logWithColor(
+				`✅ Successfully generated the upload URL for "${filename}":\n${uploadUrl}`,
+				"\x1b[35m",
+			); // Magenta
+
+			return c.json(
+				{ message: "Upload URL generated successfully", uploadUrl },
+				200,
+			);
+		} catch (error: any) {
+			logWithColor(
+				`❌ Failed to generate upload URL for "${filename}". Error: ${error.message}`,
+				"\x1b[31m",
+			); // Red
+			return c.json(
+				{ error: "Error generating signed URL", details: error.message },
+				500,
+			);
+		}
+	} catch (error: any) {
+		logWithColor(
+			`❌ Something went wrong during the upload initiation for "${filename}". Error: ${error.message}`,
+			"\x1b[31m",
+		); // Red
+		return c.json(
+			{
+				error: "Failed to initiate image upload",
+				details: error.message,
+			},
+			500,
+		);
+	}
+});
+
+// POST route for generating image viewing URL
+app.post("/generate-url", async (c) => {
+	const { filename } = await c.req.json();
+
+	logWithColor(
+		`🔍 Received a request to generate a viewing URL for the image: "${filename}"`,
+		"\x1b[36m",
+	); // Cyan
+
+	if (!filename) {
+		logWithColor("❌ No filename was provided in the request.", "\x1b[31m"); // Red
+		return c.json({ error: "Filename is required" }, 400);
+	}
+
+	try {
+		const url = `https://peeple.s3.ap-south-1.amazonaws.com/uploads/${filename}`;
+		return c.json({ filename, url });
+	} catch (error: any) {
+		logWithColor(
+			`❌ Failed to generate viewing URL for "${filename}". Error: ${error.message}`,
+			"\x1b[31m",
+		); // Red
+		return c.json({ error: "Failed to generate URL" }, 500);
+	}
+});
+
+app.post("/api/get-recommendations", async (c) => {
+	console.log("HEYYYYYY");
+	//@ts-expect-error: W T F
+	const email = c.get("email") as string;
+
+	if (!email) return c.json({ error: "Email is required." });
+
+	console.log(email, "is sent");
+	try {
+		const recommendations = await getReccomendations(email);
+		console.log(recommendations);
+		return c.json({ recommendations });
+	} catch (e) {
+		console.error("Error fetching recommendations:", e);
+		return c.json({ error: "Failed to fetch recommendations." }, 500);
 	}
 });
 
