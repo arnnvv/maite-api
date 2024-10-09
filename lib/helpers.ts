@@ -14,6 +14,7 @@ export const getEmail = async (
 		console.log("in try");
 		//@ts-expect-error: W T F
 		const email = decoded.email as string;
+		console.log("email decoded");
 		return { email: email };
 	} catch (e) {
 		console.error(e);

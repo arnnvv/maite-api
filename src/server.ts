@@ -2,9 +2,9 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { db } from "../lib/db";
-import { pictures, users } from "../lib/db/schema";
+import { likes, pictures, users } from "../lib/db/schema";
 import { v4 } from "uuid";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { createTransport, SentMessageInfo } from "nodemailer";
 import jwt from "jsonwebtoken";
 import { getEmail, getReccomendations } from "../lib/helpers";
@@ -415,6 +415,229 @@ app.post("/api/get-recommendations", async (c) => {
 	} catch (e) {
 		console.error("Error fetching recommendations:", e);
 		return c.json({ error: "Failed to fetch recommendations." }, 500);
+	}
+});
+
+app.post("/api/checkPlan", async (c) => {
+	console.log("bhaiya req ja rhi hai ");
+	//@ts-expect-error: W T F
+	const email = c.get("email") as string;
+	try {
+		const user = await db.select().from(users).where(eq(users.email, email));
+		if (user[0].subscription === "basic") {
+			return c.json({ hasBasicPlan: true });
+		} else {
+			return c.json({ hasBasicPlan: false });
+		}
+	} catch (e) {
+		throw new Error(`${e}`);
+	}
+});
+
+app.post("/api/updateUserPlan", async (c) => {
+	//@ts-expect-error: W T F
+	const email = c.get("email") as string;
+
+	const { plan } = await c.req.json();
+
+	const togglePlan = (currentPlan: string) => {
+		return currentPlan === "basic" ? "premium" : "basic";
+	};
+
+	try {
+		const newPlan = togglePlan(plan); // Toggle the plan
+		await db
+			.update(users)
+			.set({
+				subscription: newPlan,
+			})
+			.where(eq(users.email, email));
+		return c.json({ success: true });
+	} catch (e: any) {
+		return c.json({ error: e.message }, 500);
+	}
+});
+
+app.post("/api/add-like", async (c) => {
+	//@ts-expect-error: W T F
+	const likerEmail = c.get("email") as string;
+	try {
+		const { likedEmail } = await c.req.json();
+
+		// Check if both emails are provided
+		if (!likedEmail)
+			return c.json(
+				{
+					message: "Both likerEmail and likedEmail must be provided.",
+				},
+				500,
+			);
+
+		const existingLike = await db
+			.select()
+			.from(likes)
+			.where(
+				and(eq(likes.likerEmail, likerEmail), eq(likes.likedEmail, likedEmail)),
+			)
+			.limit(1);
+
+		if (existingLike.length > 0) {
+			console.log("\x1b[33m[Info] Like already exists");
+			return;
+		}
+
+		console.log(
+			`\x1b[36m[Debug] Received likerEmail: ${likerEmail}, likedEmail: ${likedEmail}`,
+		);
+
+		// Insert into the 'likes' table
+		await db.insert(likes).values({
+			likerEmail,
+			likedEmail,
+		});
+
+		console.log("\x1b[32m[Success] Like added successfully");
+
+		// Respond with success
+		return c.json(
+			{
+				message: "Like added successfully.",
+				likerEmail,
+				likedEmail,
+			},
+			201,
+		);
+	} catch (error) {
+		console.error("\x1b[31m[Error] Failed to add like:", error);
+		return c.json(
+			{
+				message: "Failed to add like.",
+				error: error,
+			},
+			500,
+		);
+	}
+});
+
+app.post("/api/liked-by", async (c) => {
+	//@ts-expect-error: W T F
+	const email = c.get("email") as string;
+	try {
+		console.log(`\x1b[36m[Debug] Fetching users who liked: ${email}`);
+
+		// Query the likes table to find all users who liked this user
+		const likedByUsers = await db
+			.select({
+				likerEmail: users.email,
+				likerName: users.name,
+			})
+			.from(likes)
+			.innerJoin(users, eq(likes.likerEmail, users.email)) // Correct usage of eq for inner join
+			.where(eq(likes.likedEmail, email)); // Ensure to use eq for where condition
+
+		console.log("\x1b[32m[Success] Users fetched successfully:", likedByUsers);
+
+		// Respond with the list of users who liked this user
+		return c.json(
+			{
+				message: "Users fetched successfully.",
+				likedByUsers,
+			},
+			200,
+		);
+	} catch (error: any) {
+		console.error("\x1b[31m[Error] Failed to fetch users:", error);
+		return c.json(
+			{
+				message: "Failed to fetch users.",
+				error: error.message,
+			},
+			500,
+		);
+	}
+});
+
+app.post("/api/mutual-likes", async (c) => {
+	//@ts-expect-error: W T F
+	const email = c.get("email") as string;
+	try {
+		console.log(`\x1b[36m[Debug] Fetching mutual likes for: ${email}`);
+
+		const mutualLikes = await db
+			.select({
+				name: users.name,
+				instaId: users.instaId,
+				phone: users.phone,
+				photoUrl: pictures.url,
+			})
+			.from(likes)
+			.innerJoin(users, eq(likes.likedEmail, users.email))
+			.innerJoin(pictures, eq(users.email, pictures.email))
+			.where(
+				and(
+					eq(likes.likerEmail, email),
+					inArray(
+						likes.likedEmail,
+						db
+							.select({ likedEmail: likes.likerEmail })
+							.from(likes)
+							.where(eq(likes.likedEmail, email)),
+					),
+				),
+			)
+			.groupBy(
+				users.name,
+				users.instaId,
+				users.phone,
+				pictures.url,
+				users.email,
+			);
+
+		/*
+    const mutualLikes2 = await db
+			.select({
+				name: users.name,
+				instaId: users.instaId,
+				phone: users.phone,
+				photoUrl: pictures.url,
+			})
+			.from(likes)
+			.innerJoin(users, eq(likes.likerEmail, users.email))
+			.innerJoin(pictures, eq(users.email, pictures.email))
+			.where(eq(likes.likedEmail, email));
+		const commonUsers = mutualLikes.filter((user1) =>
+			mutualLikes2.some((user2) => user1.instaId === user2.instaId),
+		);
+*/
+		// Extracting results from the returned data
+		const results = mutualLikes.map((row) => ({
+			userName: row.name,
+			instaId: row.instaId,
+			phone: row.phone,
+			photoUrl: row.photoUrl,
+		}));
+		console.log(
+			"\x1b[32m[Success] Mutual likes fetched successfully:",
+			results,
+		);
+
+		// Respond with the list of mutual likes along with user details
+		return c.json(
+			{
+				message: "Mutual likes fetched successfully.",
+				mutualLikes: results, // Responding with the extracted user details
+			},
+			200,
+		);
+	} catch (error: any) {
+		console.error("\x1b[31m[Error] Failed to fetch mutual likes:", error);
+		return c.json(
+			{
+				message: "Failed to fetch mutual likes.",
+				error: error.message,
+			},
+			500,
+		);
 	}
 });
 
