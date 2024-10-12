@@ -1,8 +1,8 @@
-import { getJWTSECRET } from "../src/server";
 import jwt from "jsonwebtoken";
 import { db } from "./db";
 import { pictures, User, users } from "./db/schema";
 import { eq } from "drizzle-orm";
+import { env } from "../src/server";
 
 type UserWithImage = User & { photo: string };
 
@@ -10,10 +10,9 @@ export const getEmail = async (
 	token: string,
 ): Promise<{ email: string } | { error: string }> => {
 	try {
-		const decoded = jwt.verify(token, getJWTSECRET());
+		const decoded = jwt.verify(token, env.JWT_SECRET) as { email: string };
 		console.log("in try");
-		//@ts-expect-error: W T F
-		const email = decoded.email as string;
+		const email = decoded.email;
 		console.log("email decoded");
 		return { email: email };
 	} catch (e) {
