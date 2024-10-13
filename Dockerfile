@@ -8,7 +8,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm exec tsc
+RUN pnpm exec tsc -b
 
 EXPOSE 3000
 
