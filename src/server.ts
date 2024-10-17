@@ -12,7 +12,7 @@ import { s3Uploader } from "../lib/s3Uploader";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { expressMiddleware } from "@apollo/server/express4";
 import { getGQLserver } from "../lib/gql";
-import { ApolloServer, BaseContext } from "@apollo/server";
+import { ApolloServer } from "@apollo/server";
 
 interface AuthenticatedRequest extends Request {
 	email?: string;
@@ -47,11 +47,232 @@ export const env: {
 };
 
 (async () => {
-	/* const server: ApolloServer<BaseContext> = await getGQLserver({
-		typeDefs: "",
+	const server: ApolloServer = await getGQLserver({
+		typeDefs: `
+type User {
+  id: ID!
+  name: String
+  email: String!
+  location: String
+  gender: String
+  relationshiptype: String
+  height: Int
+  religion: String
+  occupationField: String
+  occupationArea: String
+  drink: String
+  smoke: String
+  bio: String
+  date: Int
+  month: Int
+  year: Int
+  subscription: String
+  instaId: String
+  phone: String
+  pictures: [Picture!]
+  likes: [Like!]
+  matches: [Match!]
+  sentMessages: [Message!]
+  receivedMessages: [Message!]
+  preferences: UserPreference
+}
+
+type Picture {
+  id: ID!
+  email: String!
+  url: String!
+  user: User!
+}
+
+type Like {
+  id: ID!
+  likerEmail: String!
+  likedEmail: String!
+  liker: User!
+  liked: User!
+}
+
+type Match {
+  id: ID!
+  user1id: ID!
+  user2id: ID!
+  matchedat: String!
+  user1: User!
+  user2: User!
+}
+
+type Message {
+  id: ID!
+  senderEmail: String!
+  receiverEmail: String!
+  content: String!
+  sentAt: String!
+  isRead: Boolean!
+  sender: User!
+  receiver: User!
+}
+
+type UserPreference {
+  id: ID!
+  userid: ID!
+  agerange: JSON
+  genderpreference: JSON
+  relationshiptypepreference: JSON
+  maxdistance: Int
+  user: User!
+}
+
+type ProfileImage {
+  id: ID!
+  email: String!
+  url: String!
+  imageName: String!
+  imageNo: Int!
+  user: User!
+}
+
+type Query {
+  user(id: ID!): User
+  users: [User!]!
+  picture(id: ID!): Picture
+  pictures: [Picture!]!
+  like(id: ID!): Like
+  likes: [Like!]!
+  match(id: ID!): Match
+  matches: [Match!]!
+  message(id: ID!): Message
+  messages: [Message!]!
+  userPreference(id: ID!): UserPreference
+  userPreferences: [UserPreference!]!
+  profileImage(id: ID!): ProfileImage
+  profileImages: [ProfileImage!]!
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): User!
+  updateUser(id: ID!, input: UpdateUserInput!): User!
+  deleteUser(id: ID!): Boolean!
+
+  createPicture(input: CreatePictureInput!): Picture!
+  deletePicture(id: ID!): Boolean!
+
+  createLike(input: CreateLikeInput!): Like!
+  deleteLike(id: ID!): Boolean!
+
+  createMatch(input: CreateMatchInput!): Match!
+  deleteMatch(id: ID!): Boolean!
+
+  createMessage(input: CreateMessageInput!): Message!
+  updateMessage(id: ID!, input: UpdateMessageInput!): Message!
+  deleteMessage(id: ID!): Boolean!
+
+  createUserPreference(input: CreateUserPreferenceInput!): UserPreference!
+  updateUserPreference(id: ID!, input: UpdateUserPreferenceInput!): UserPreference!
+  deleteUserPreference(id: ID!): Boolean!
+
+  createProfileImage(input: CreateProfileImageInput!): ProfileImage!
+  updateProfileImage(id: ID!, input: UpdateProfileImageInput!): ProfileImage!
+  deleteProfileImage(id: ID!): Boolean!
+}
+
+input CreateUserInput {
+  name: String
+  email: String!
+  location: String
+  gender: String
+  relationshiptype: String
+  height: Int
+  religion: String
+  occupationField: String
+  occupationArea: String
+  drink: String
+  smoke: String
+  bio: String
+  date: Int
+  month: Int
+  year: Int
+  subscription: String
+  instaId: String
+  phone: String
+}
+
+input UpdateUserInput {
+  name: String
+  location: String
+  gender: String
+  relationshiptype: String
+  height: Int
+  religion: String
+  occupationField: String
+  occupationArea: String
+  drink: String
+  smoke: String
+  bio: String
+  date: Int
+  month: Int
+  year: Int
+  subscription: String
+  instaId: String
+  phone: String
+}
+
+input CreatePictureInput {
+  email: String!
+  url: String!
+}
+
+input CreateLikeInput {
+  likerEmail: String!
+  likedEmail: String!
+}
+
+input CreateMatchInput {
+  user1id: ID!
+  user2id: ID!
+}
+
+input CreateMessageInput {
+  senderEmail: String!
+  receiverEmail: String!
+  content: String!
+}
+
+input UpdateMessageInput {
+  content: String
+  isRead: Boolean
+}
+
+input CreateUserPreferenceInput {
+  userid: ID!
+  agerange: JSON
+  genderpreference: JSON
+  relationshiptypepreference: JSON
+  maxdistance: Int
+}
+
+input UpdateUserPreferenceInput {
+  agerange: JSON
+  genderpreference: JSON
+  relationshiptypepreference: JSON
+  maxdistance: Int
+}
+
+input CreateProfileImageInput {
+  email: String!
+  url: String!
+  imageName: String!
+  imageNo: Int!
+}
+
+input UpdateProfileImageInput {
+  url: String
+  imageName: String
+  imageNo: Int
+}
+`,
 		resolvers: {},
 	});
-*/
+
 	const app = e();
 
 	app.use(
@@ -59,7 +280,7 @@ export const env: {
 			origin: "*",
 		}),
 		e.json(),
-		//		expressMiddleware(server),
+		expressMiddleware(server),
 	);
 
 	const verifyToken = async (
@@ -113,18 +334,18 @@ export const env: {
 	});
 
 	app.post("/check-email", async (req: AuthenticatedRequest, res: Response) => {
-		logWithColor("POST /check-email - Request received", "\x1b[36m"); // Cyan
+		logWithColor("POST /check-email - Request received", "\x1b[36m");
 
 		try {
 			const { email } = req.body;
 
 			if (!email) {
-				logWithColor("Email is required but missing", "\x1b[31m"); // Red
+				logWithColor("Email is required but missing", "\x1b[31m");
 				res.status(400).json({ error: "Email is required" });
 				return;
 			}
 
-			logWithColor(`Checking if email exists: ${email}`, "\x1b[36m"); // Cyan
+			logWithColor(`Checking if email exists: ${email}`, "\x1b[36m");
 
 			const user = await db
 				.select()
@@ -133,17 +354,17 @@ export const env: {
 				.limit(1);
 
 			if (user.length > 0) {
-				logWithColor(`User with email ${email} found`, "\x1b[32m"); // Green
+				logWithColor(`User with email ${email} found`, "\x1b[32m");
 				const nameExists = user[0].name;
 
 				if (nameExists) {
-					logWithColor(`User already has a name: ${nameExists}`, "\x1b[33m"); // Yellow
+					logWithColor(`User already has a name: ${nameExists}`, "\x1b[33m");
 					res.json({ exists: true });
 				} else {
 					logWithColor(
 						`User has no name, allowing profile creation`,
 						"\x1b[33m",
-					); // Yellow
+					);
 					res.json({ exists: false });
 				}
 				return;
@@ -151,7 +372,7 @@ export const env: {
 				logWithColor(
 					`No user with email ${email}, creating new user`,
 					"\x1b[36m",
-				); // Cyan
+				);
 				await db.insert(users).values({
 					id: v4(),
 					email: email,
@@ -159,18 +380,18 @@ export const env: {
 				res.json({ exists: false });
 			}
 		} catch (error) {
-			logWithColor(`Error during email check: ${error}`, "\x1b[31m"); // Red
+			logWithColor(`Error during email check: ${error}`, "\x1b[31m");
 			res.status(500).json({ error: "Internal server error" });
 		}
 	});
 
 	// Send OTP
 	app.post("/send-otp", async (req: AuthenticatedRequest, res: Response) => {
-		logWithColor("POST /send-otp - Request received", "\x1b[36m"); // Cyan
+		logWithColor("POST /send-otp - Request received", "\x1b[36m");
 		const { email } = req.body;
 
 		if (!email) {
-			logWithColor("Email is required but missing", "\x1b[31m"); // Red
+			logWithColor("Email is required but missing", "\x1b[31m");
 			res.status(400).json({ error: "Email is required" });
 			return;
 		}
@@ -187,7 +408,7 @@ export const env: {
 		}
 
 		const otp = Math.floor(100000 + Math.random() * 900000).toString();
-		logWithColor(`Generated OTP for ${email}: ${otp}`, "\x1b[36m"); // Cyan
+		logWithColor(`Generated OTP for ${email}: ${otp}`, "\x1b[36m");
 		dummyusers[email] = otp;
 
 		const mailOptions = {
@@ -205,16 +426,16 @@ export const env: {
 			},
 		});
 
-		logWithColor(`Attempting to send OTP to ${email}`, "\x1b[33m"); // Yellow
+		logWithColor(`Attempting to send OTP to ${email}`, "\x1b[33m");
 		transporter.sendMail(
 			mailOptions,
 			(error: Error | null, info: SentMessageInfo): Response | undefined => {
 				if (error) {
-					logWithColor(`Error sending OTP to ${email}: ${error}`, "\x1b[31m"); // Red
+					logWithColor(`Error sending OTP to ${email}: ${error}`, "\x1b[31m");
 					res.status(500).json({ error: "Error sending OTP" });
 					return;
 				} else {
-					logWithColor(`OTP sent to ${email}: ${info.response}`, "\x1b[32m"); // Green
+					logWithColor(`OTP sent to ${email}: ${info.response}`, "\x1b[32m");
 					res.status(400).json({ message: "OTP sent to email" });
 					return;
 				}
@@ -223,20 +444,20 @@ export const env: {
 	});
 
 	app.post("/verify-otp", (req: AuthenticatedRequest, res: Response) => {
-		logWithColor("POST /verify-otp - Request received", "\x1b[36m"); // Cyan
+		logWithColor("POST /verify-otp - Request received", "\x1b[36m");
 		const { email, otp } = req.body;
-		logWithColor(`Verifying OTP for ${email}`, "\x1b[33m"); // Yellow
+		logWithColor(`Verifying OTP for ${email}`, "\x1b[33m");
 
 		if (dummyusers[email] === otp) {
-			logWithColor(`OTP verified for ${email}`, "\x1b[32m"); // Green
+			logWithColor(`OTP verified for ${email}`, "\x1b[32m");
 			const token = jwt.sign({ email }, env.JWT_SECRET, { expiresIn: "30d" });
-			logWithColor(`Token generated for ${email}: ${token}`, "\x1b[36m"); // Cyan
+			logWithColor(`Token generated for ${email}: ${token}`, "\x1b[36m");
 			res.status(200).json({ token });
 			return;
 		} else {
 			logWithColor(
 				`Invalid OTP for ${email}. Provided OTP: ${otp}, Expected OTP: ${dummyusers[email]}`,
-				"\x1b[31m", // Red
+				"\x1b[31m",
 			);
 			res.status(401).json({ error: "Invalid OTP" });
 		}
@@ -449,10 +670,10 @@ export const env: {
 			logWithColor(
 				`🔍 Received a request to generate a viewing URL for the image: "${filename}"`,
 				"\x1b[36m",
-			); // Cyan
+			);
 
 			if (!filename) {
-				logWithColor("❌ No filename was provided in the request.", "\x1b[31m"); // Red
+				logWithColor("❌ No filename was provided in the request.", "\x1b[31m");
 				res.status(400).json({ error: "Filename is required" });
 			}
 
@@ -520,7 +741,7 @@ export const env: {
 			};
 
 			try {
-				const newPlan = togglePlan(plan); // Toggle the plan
+				const newPlan = togglePlan(plan);
 				await db
 					.update(users)
 					.set({
@@ -541,7 +762,6 @@ export const env: {
 			try {
 				const { likedEmail } = req.body;
 
-				// Check if both emails are provided
 				if (!likedEmail)
 					res.status(500).json({
 						message: "Both likerEmail and likedEmail must be provided.",
@@ -567,7 +787,6 @@ export const env: {
 					`\x1b[36m[Debug] Received likerEmail: ${likerEmail}, likedEmail: ${likedEmail}`,
 				);
 
-				// Insert into the 'likes' table
 				await db.insert(likes).values({
 					likerEmail,
 					likedEmail,
@@ -575,7 +794,6 @@ export const env: {
 
 				console.log("\x1b[32m[Success] Like added successfully");
 
-				// Respond with success
 				res.status(201).json({
 					message: "Like added successfully.",
 					likerEmail,
@@ -598,7 +816,6 @@ export const env: {
 			try {
 				console.log(`\x1b[36m[Debug] Fetching users who liked: ${email}`);
 
-				// Query the likes table to find all users who liked this user
 				const likedByUsers = await db
 					.select({
 						likerEmail: users.email,
@@ -613,7 +830,6 @@ export const env: {
 					likedByUsers,
 				);
 
-				// Respond with the list of users who liked this user
 				res.status(200).json({
 					message: "Users fetched successfully.",
 					likedByUsers,
@@ -676,10 +892,9 @@ export const env: {
 					results,
 				);
 
-				// Respond with the list of mutual likes along with user details
 				res.status(200).json({
 					message: "Mutual likes fetched successfully.",
-					mutualLikes: results, // Responding with the extracted user details
+					mutualLikes: results,
 				});
 			} catch (error: any) {
 				console.error("\x1b[31m[Error] Failed to fetch mutual likes:", error);

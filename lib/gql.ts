@@ -1,4 +1,4 @@
-import { ApolloServer, BaseContext } from "@apollo/server";
+import { ApolloServer } from "@apollo/server";
 
 class ApolloServerSingleton {
 	private static instance: ApolloServerSingleton;
@@ -33,10 +33,9 @@ export const getGQLserver = async ({
 	typeDefs: any;
 	resolvers: any;
 }) => {
-	const apolloServer: ApolloServer<BaseContext> =
-		await ApolloServerSingleton.getInstance({
-			typeDefs,
-			resolvers,
-		});
+	const apolloServer: ApolloServer = await ApolloServerSingleton.getInstance({
+		typeDefs,
+		resolvers,
+	});
 	return apolloServer;
 };
