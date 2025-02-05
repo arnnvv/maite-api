@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { db } from "./db";
-import { pictures, User, users } from "./db/schema";
+import { pictures, users } from "./db/schema";
+import type { User } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { env } from "../src/server";
 
@@ -50,8 +51,8 @@ export const getReccomendations = async (email: string) => {
     }
 
     console.log("Gender found:", gender);
-    let recommendation;
-    let recommendationWithImage;
+    let recommendation: User[];
+    let recommendationWithImage: UserWithImage[];
     try {
       if (gender === "male") {
         console.log("Fetching female users as recommendations");
@@ -78,7 +79,8 @@ export const getReccomendations = async (email: string) => {
         );
 
         return recommendationWithImage;
-      } else if (gender === "female") {
+      }
+      if (gender === "female") {
         console.log("Fetching male users as recommendations");
         recommendation = await db
           .select()
@@ -102,10 +104,9 @@ export const getReccomendations = async (email: string) => {
           }),
         );
         return recommendationWithImage;
-      } else {
-        console.error("Unhandled gender type:", gender);
-        return { error: "Invalid gender type" }; // Return a proper error message
       }
+      console.error("Unhandled gender type:", gender);
+      return { error: "Invalid gender type" }; // Return a proper error message
     } catch (recommendationError) {
       console.error("Error fetching recommendations:", recommendationError);
       throw new Error("Failed to fetch recommendations from database");

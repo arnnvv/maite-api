@@ -1,15 +1,18 @@
-import e, { NextFunction, Request, Response } from "express";
-import cors, { CorsRequest } from "cors";
+import type { NextFunction, Request, Response } from "express";
+import type { CorsRequest } from "cors";
+import type { SentMessageInfo } from "nodemailer";
+import { createTransport } from "nodemailer";
 import { db } from "../lib/db";
 import { likes, pictures, users } from "../lib/db/schema";
 import { v4 } from "uuid";
 import { and, eq, inArray } from "drizzle-orm";
-import { createTransport, SentMessageInfo } from "nodemailer";
-import jwt from "jsonwebtoken";
 import { getEmail, getReccomendations } from "../lib/helpers";
 import { s3 } from "../lib/imageStore";
 import { s3Uploader } from "../lib/s3Uploader";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import e from "express";
+import c from "cors";
+import jwt from "jsonwebtoken";
 
 interface AuthenticatedRequest extends Request {
   email?: string;
@@ -46,7 +49,7 @@ export const env: {
 const app = e();
 
 app.use(
-  cors<CorsRequest>({
+  c<CorsRequest>({
     origin: "*",
   }),
   e.json(),
@@ -156,21 +159,17 @@ app.post("/check-email", async (req: AuthenticatedRequest, res: Response) => {
         logWithColor(`User already has a name: ${nameExists}`, "\x1b[33m");
         res.json({ exists: true });
       } else {
-        logWithColor(`User has no name, allowing profile creation`, "\x1b[33m");
+        logWithColor("User has no name, allowing profile creation", "\x1b[33m");
         res.json({ exists: false });
       }
       return;
-    } else {
-      logWithColor(
-        `No user with email ${email}, creating new user`,
-        "\x1b[36m",
-      );
-      await db.insert(users).values({
-        id: v4(),
-        email: email,
-      });
-      res.json({ exists: false });
     }
+    logWithColor(`No user with email ${email}, creating new user`, "\x1b[36m");
+    await db.insert(users).values({
+      id: v4(),
+      email: email,
+    });
+    res.json({ exists: false });
   } catch (error) {
     logWithColor(`Error during email check: ${error}`, "\x1b[31m");
     res.status(500).json({ error: "Internal server error" });
@@ -242,11 +241,10 @@ app.post("/send-otp", async (req: AuthenticatedRequest, res: Response) => {
         logWithColor(`Error sending OTP to ${email}: ${error}`, "\x1b[31m");
         res.status(500).json({ error: "Error sending OTP" });
         return;
-      } else {
-        logWithColor(`OTP sent to ${email}: ${info.response}`, "\x1b[32m");
-        res.status(200).json({ message: "OTP sent to email" });
-        return;
       }
+      logWithColor(`OTP sent to ${email}: ${info.response}`, "\x1b[32m");
+      res.status(200).json({ message: "OTP sent to email" });
+      return;
     },
   );
 });
@@ -262,13 +260,12 @@ app.post("/verify-otp", (req: AuthenticatedRequest, res: Response) => {
     logWithColor(`Token generated for ${email}: ${token}`, "\x1b[36m");
     res.status(200).json({ token });
     return;
-  } else {
-    logWithColor(
-      `Invalid OTP for ${email}. Provided OTP: ${otp}, Expected OTP: ${dummyusers[email]}`,
-      "\x1b[31m",
-    );
-    res.status(401).json({ error: "Invalid OTP" });
   }
+  logWithColor(
+    `Invalid OTP for ${email}. Provided OTP: ${otp}, Expected OTP: ${dummyusers[email]}`,
+    "\x1b[31m",
+  );
+  res.status(401).json({ error: "Invalid OTP" });
 });
 
 app.use("/api", verifyToken);
@@ -276,7 +273,11 @@ app.use("/api", verifyToken);
 app.post("/api/get-user", async (req: AuthenticatedRequest, res: Response) => {
   logWithColor("POST /get-user-from-token - Request received", "\x1b[36m"); // Cyan
 
-  const email: string = req.email!;
+  const email = req.email;
+  if (!email) {
+    res.status(400).json({ error: "Email is required." });
+    return;
+  }
 
   logWithColor(`Verified email from token: ${email}`, "\x1b[32m"); // Green
   try {
@@ -421,7 +422,7 @@ app.post("/upload-image", async (req: AuthenticatedRequest, res: Response) => {
     const command = s3Uploader.uploadFile(filename);
 
     logWithColor(
-      `🔗 Generating a signed URL for the image upload...`,
+      "🔗 Generating a signed URL for the image upload...",
       "\x1b[34m",
     ); // Blue
 
@@ -435,24 +436,26 @@ app.post("/upload-image", async (req: AuthenticatedRequest, res: Response) => {
       res
         .status(200)
         .json({ message: "Upload URL generated successfully", uploadUrl });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : `${error}`;
       logWithColor(
-        `❌ Failed to generate upload URL for "${filename}". Error: ${error.message}`,
+        `❌ Failed to generate upload URL for "${filename}". Error: ${errorMessage}`,
         "\x1b[31m",
       ); // Red
       res.status(500).json({
         error: "Error generating signed URL",
-        details: error.message,
+        details: errorMessage,
       });
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : `${error}`;
     logWithColor(
-      `❌ Something went wrong during the upload initiation for "${filename}". Error: ${error.message}`,
+      `❌ Something went wrong during the upload initiation for "${filename}". Error: ${errorMessage}`,
       "\x1b[31m",
     ); // Red
     res.status(500).json({
       error: "Failed to initiate image upload",
-      details: error.message,
+      details: errorMessage,
     });
   }
 });
@@ -474,9 +477,10 @@ app.post("/generate-url", async (req: AuthenticatedRequest, res: Response) => {
   try {
     const url = `https://peeple.s3.us-east-2.amazonaws.com/uploads/${filename}`;
     res.json({ filename, url });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : `${error}`;
     logWithColor(
-      `❌ Failed to generate viewing URL for "${filename}". Error: ${error.message}`,
+      `❌ Failed to generate viewing URL for "${filename}". Error: ${errorMessage}`,
       "\x1b[31m",
     ); // Red
     res.status(500).json({ error: "Failed to generate URL" });
@@ -487,7 +491,11 @@ app.post(
   "/api/get-recommendations",
   async (req: AuthenticatedRequest, res: Response) => {
     console.log("HEYYYYYY");
-    const email: string = req.email!;
+    const email = req.email;
+    if (!email) {
+      res.status(400).json({ error: "Email is required." });
+      return;
+    }
 
     console.log(email, "is sent");
     try {
@@ -503,7 +511,12 @@ app.post(
 
 app.post("/api/checkPlan", async (req: AuthenticatedRequest, res: Response) => {
   console.log("bhaiya req ja rhi hai ");
-  const email = req.email!;
+  const email = req.email;
+  if (!email) {
+    res.status(400).json({ error: "Email is required." });
+    return;
+  }
+
   try {
     const user = await db.select().from(users).where(eq(users.email, email));
     if (user[0].subscription === "basic") {
@@ -519,7 +532,11 @@ app.post("/api/checkPlan", async (req: AuthenticatedRequest, res: Response) => {
 app.post(
   "/api/updateUserPlan",
   async (req: AuthenticatedRequest, res: Response) => {
-    const email = req.email!;
+    const email = req.email;
+    if (!email) {
+      res.status(400).json({ error: "Email is required." });
+      return;
+    }
 
     const { plan } = req.body;
 
@@ -536,14 +553,21 @@ app.post(
         })
         .where(eq(users.email, email));
       res.json({ success: true });
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : `${error}`;
+
+      res.status(500).json({ error: errorMessage });
     }
   },
 );
 
 app.post("/api/add-like", async (req: AuthenticatedRequest, res: Response) => {
-  const likerEmail = req.email!;
+  const likerEmail = req.email;
+  if (!likerEmail) {
+    res.status(400).json({ error: "Email is required." });
+    return;
+  }
+
   try {
     const { likedEmail } = req.body;
 
@@ -591,7 +615,12 @@ app.post("/api/add-like", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 app.post("/api/liked-by", async (req: AuthenticatedRequest, res: Response) => {
-  const email = req.email!;
+  const email = req.email;
+  if (!email) {
+    res.status(400).json({ error: "Email is required." });
+    return;
+  }
+
   try {
     console.log(`\x1b[36m[Debug] Fetching users who liked: ${email}`);
 
@@ -610,11 +639,13 @@ app.post("/api/liked-by", async (req: AuthenticatedRequest, res: Response) => {
       message: "Users fetched successfully.",
       likedByUsers,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : `${error}`;
+
     console.error("\x1b[31m[Error] Failed to fetch users:", error);
     res.status(500).json({
       message: "Failed to fetch users.",
-      error: error.message,
+      error: errorMessage,
     });
   }
 });
@@ -622,7 +653,12 @@ app.post("/api/liked-by", async (req: AuthenticatedRequest, res: Response) => {
 app.post(
   "/api/mutual-likes",
   async (req: AuthenticatedRequest, res: Response) => {
-    const email = req.email!;
+    const email = req.email;
+    if (!email) {
+      res.status(400).json({ error: "Email is required." });
+      return;
+    }
+
     try {
       console.log(`\x1b[36m[Debug] Fetching mutual likes for: ${email}`);
 
@@ -671,11 +707,13 @@ app.post(
         message: "Mutual likes fetched successfully.",
         mutualLikes: results,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : `${error}`;
+
       console.error("\x1b[31m[Error] Failed to fetch mutual likes:", error);
       res.status(500).json({
         message: "Failed to fetch mutual likes.",
-        error: error.message,
+        error: errorMessage,
       });
     }
   },

@@ -16,8 +16,8 @@ class S3Instance {
   }
 
   public static getInstance(): S3Instance {
-    if (!this.instance) this.instance = new S3Instance();
-    return this.instance;
+    if (!S3Instance.instance) S3Instance.instance = new S3Instance();
+    return S3Instance.instance;
   }
 
   private getS3Credentials(): {

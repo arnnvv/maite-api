@@ -6,9 +6,10 @@ class S3Uploader {
   private constructor() {}
 
   public static getInstance(): S3Uploader {
-    if (!this.instance) this.instance = new S3Uploader();
-
-    return this.instance;
+    if (!S3Uploader.instance) {
+      S3Uploader.instance = new S3Uploader();
+    }
+    return S3Uploader.instance;
   }
 
   public uploadFile(filename: string) {
