@@ -194,8 +194,15 @@ app.post("/send-otp", async (req: AuthenticatedRequest, res: Response) => {
 		.limit(1);
 
 	if (userExists.length <= 0) {
-		res.status(400).json({ error: "User dosen't Exist" });
-		return;
+    logWithColor(`ℹ️ No user found with email ${email}. Inserting new user record...`, "\x1b[33m");
+    try {
+      await db.insert(users).values({ id: v4(), email });
+      logWithColor(`✅ Successfully inserted user with email: ${email}`, "\x1b[32m");
+    } catch (insertionError) {
+      logWithColor(`❌ Error inserting user ${email}: ${insertionError}`, "\x1b[31m");
+      res.status(500).json({ error: "Error creating user" });
+      return;
+    }
 	}
 
 	const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -455,7 +462,7 @@ app.post("/generate-url", async (req: AuthenticatedRequest, res: Response) => {
 	}
 
 	try {
-		const url = `https://peeple.s3.ap-south-1.amazonaws.com/uploads/${filename}`;
+		const url = `https://peeple.s3.us-east-2.amazonaws.com/uploads/${filename}`;
 		res.json({ filename, url });
 	} catch (error: any) {
 		logWithColor(
