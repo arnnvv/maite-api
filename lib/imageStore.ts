@@ -7,7 +7,7 @@ class S3Instance {
 	private constructor() {
 		const { accessKeyId, secretAccessKey } = this.getS3Credentials();
 		this.s3Client = new S3Client({
-			region: "ap-south-1",
+			region: "us-east-2",
 			credentials: {
 				accessKeyId,
 				secretAccessKey,
