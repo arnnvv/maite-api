@@ -1,42 +1,43 @@
 {
-	"name": "peeple-api",
-	"version": "1.0.0",
-	"main": "index.js",
-	"license": "ISC",
-	"scripts": {
-		"f": "pnpm biome format --write .",
-		"b": "pnpm exec tsc -b",
-		"d": "node --env-file .env dist/src/server.js",
-		"start": "docker run -p 3000:3000 peeple_api_image",
-		"db:generate": "drizzle-kit generate",
-		"db:migrate": "drizzle-kit migrate",
-		"db:push": "drizzle-kit push",
-		"ds": "drizzle-kit studio",
-		"db:drop": "drizzle-kit drop"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^1.9.3",
-		"@types/cors": "^2.8.17",
-		"@types/express": "^5.0.0",
-		"@types/jsonwebtoken": "^9.0.7",
-		"@types/node": "^22.7.5",
-		"@types/nodemailer": "^6.4.16",
-		"@types/uuid": "^10.0.0",
-		"drizzle-kit": "^0.25.0",
-		"server": "link:@types/@apollo/server",
-		"typescript": "^5.6.2"
-	},
-	"dependencies": {
-		"@aws-sdk/client-s3": "^3.667.0",
-		"@aws-sdk/s3-request-presigner": "^3.667.0",
-		"@neondatabase/serverless": "^0.10.1",
-		"cors": "^2.8.5",
-		"drizzle-orm": "^0.34.1",
-		"express": "^4.21.1",
-		"graphql": "^16.9.0",
-		"jsonwebtoken": "^9.0.2",
-		"nodemailer": "^6.9.15",
-		"uuid": "^10.0.0",
-		"zod": "^3.23.8"
-	}
+  "name": "peeple-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "ISC",
+  "scripts": {
+    "f": "pnpm biome format --write .",
+    "l": "pnpm biome lint --write .",
+    "b": "pnpm exec tsc -b",
+    "d": "node --env-file .env dist/src/server.js",
+    "start": "docker run -p 3000:3000 peeple_api_image",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "ds": "drizzle-kit studio",
+    "db:drop": "drizzle-kit drop"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.3",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "^9.0.7",
+    "@types/node": "^22.7.5",
+    "@types/nodemailer": "^6.4.16",
+    "@types/uuid": "^10.0.0",
+    "drizzle-kit": "^0.25.0",
+    "server": "link:@types/@apollo/server",
+    "typescript": "^5.6.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.667.0",
+    "@aws-sdk/s3-request-presigner": "^3.667.0",
+    "@neondatabase/serverless": "^0.10.1",
+    "cors": "^2.8.5",
+    "drizzle-orm": "^0.34.1",
+    "express": "^4.21.1",
+    "graphql": "^16.9.0",
+    "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^6.9.15",
+    "uuid": "^10.0.0",
+    "zod": "^3.23.8"
+  }
 }
